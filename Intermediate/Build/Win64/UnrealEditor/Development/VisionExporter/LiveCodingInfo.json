@@ -1,0 +1,10 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.VisionExporter.cpp.obj": [
+			"VisionExporter.cpp.obj",
+			"VisionExporterCommands.cpp.obj",
+			"VisionExporterStyle.cpp.obj"
+		]
+	}
+}

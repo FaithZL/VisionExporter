@@ -1,0 +1,12 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-VisionExporter.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"..\Intermediate\Build\Win64\UnrealEditor\Development\UnrealEd\SharedPCH.UnrealEd.ShadowErrors.h.obj"
+"D:\work\engine\project51\Plugins\VisionExporter\Intermediate\Build\Win64\UnrealEditor\Development\VisionExporter\Module.VisionExporter.cpp.obj"
+"..\Intermediate\Build\Win64\UnrealEditor\Development\Default.rc2.res"
+/OUT:"D:\work\engine\project51\Plugins\VisionExporter\Intermediate\Build\Win64\UnrealEditor\Development\VisionExporter\UnrealEditor-VisionExporter.lib"
