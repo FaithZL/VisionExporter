@@ -8,10 +8,14 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "ToolMenus.h"
+#include "AssetExportTask.h"
+#include "UObject/GCObjectScopeGuard.h"
 
 static const FName VisionExporterTabName("VisionExporter");
 
 #define LOCTEXT_NAMESPACE "FVisionExporterModule"
+
+extern ENGINE_API class UWorldProxy GWorld;
 
 void FVisionExporterModule::StartupModule()
 {
@@ -36,6 +40,22 @@ void FVisionExporterModule::StartupModule()
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
 }
 
+UWorld *FVisionExporterModule::GetWorld() const noexcept {
+	return GWorld.GetReference();
+}
+
+UAssetExportTask *FVisionExporterModule::InitExportTask() const noexcept {
+	UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+	ExportTask->Object = GetWorld();
+	ExportTask->Exporter = NULL;
+	ExportTask->bSelected = false;
+	ExportTask->bReplaceIdentical = true;
+	ExportTask->bPrompt = false;
+	ExportTask->bUseFileArchive = false;
+	ExportTask->bWriteEmptyFiles = false;
+	return ExportTask;
+}
+
 void FVisionExporterModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
@@ -54,6 +74,12 @@ void FVisionExporterModule::ShutdownModule()
 
 TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
+
+	UAssetExportTask* ExportTask = InitExportTask();
+	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+
+
+
 	FText WidgetText = FText::Format(
 		LOCTEXT("WindowWidgetText", "Add code to {0} in {1} to override this window's contents"),
 		FText::FromString(TEXT("FVisionExporterModule::OnSpawnPluginTab")),

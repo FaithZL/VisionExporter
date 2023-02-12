@@ -7,6 +7,7 @@
 
 class FToolBarBuilder;
 class FMenuBuilder;
+class UAssetExportTask;
 
 class FVisionExporterModule : public IModuleInterface
 {
@@ -23,8 +24,15 @@ private:
 
 	void RegisterMenus();
 
+	[[nodiscard]] UWorld* GetWorld() const noexcept;
+
+	void ExportMeshesToObj() const noexcept;
+
+	[[nodiscard]] UAssetExportTask* InitExportTask() const noexcept;
+
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;
+
 };
