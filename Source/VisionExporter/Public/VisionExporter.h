@@ -26,9 +26,11 @@ private:
 
 	[[nodiscard]] UWorld* GetWorld() const noexcept;
 
-	void ExportMeshesToObj() const noexcept;
+	void ExportMeshes(UAssetExportTask*) const noexcept;
+	void ExportMeshesToObj(UAssetExportTask*) const noexcept;
+	void ExportMeshesToGLTF(UAssetExportTask*) const noexcept;
 
-	[[nodiscard]] UAssetExportTask* InitExportTask() const noexcept;
+	[[nodiscard]] UAssetExportTask* InitExportTask(FString Filename, bool bSelected) const noexcept;
 
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 

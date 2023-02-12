@@ -44,16 +44,30 @@ UWorld *FVisionExporterModule::GetWorld() const noexcept {
 	return GWorld.GetReference();
 }
 
-UAssetExportTask *FVisionExporterModule::InitExportTask() const noexcept {
+UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool bSelected) const noexcept {
 	UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
 	ExportTask->Object = GetWorld();
 	ExportTask->Exporter = NULL;
+	ExportTask->Filename = Filename;
+	ExportTask->bSelected = bSelected;
 	ExportTask->bSelected = false;
 	ExportTask->bReplaceIdentical = true;
 	ExportTask->bPrompt = false;
 	ExportTask->bUseFileArchive = false;
 	ExportTask->bWriteEmptyFiles = false;
 	return ExportTask;
+}
+
+void FVisionExporterModule::ExportMeshes(UAssetExportTask* ExportTask) const noexcept {
+	ExportMeshesToObj(ExportTask);
+}
+
+void FVisionExporterModule::ExportMeshesToObj(UAssetExportTask* ExportTask) const noexcept {
+
+}
+
+void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) const noexcept {
+
 }
 
 void FVisionExporterModule::ShutdownModule()
@@ -75,7 +89,7 @@ void FVisionExporterModule::ShutdownModule()
 TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 
-	UAssetExportTask* ExportTask = InitExportTask();
+	UAssetExportTask* ExportTask = InitExportTask("Test.obj", false);
 	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
 
 
