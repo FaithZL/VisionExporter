@@ -17,6 +17,107 @@ static const FName VisionExporterTabName("VisionExporter");
 
 extern ENGINE_API class UWorldProxy GWorld;
 
+class OBJFace
+{
+public:
+	// index into OBJGeom::VertexData (local within OBJGeom)
+	uint32 VertexIndex[3];
+	/** List of vertices that make up this face. */
+
+	/** The material that was applied to this face. */
+	UMaterialInterface* Material;
+};
+
+class OBJVertex
+{
+public:
+	// position
+	FVector Vert;
+	// texture coordiante
+	FVector2D UV;
+	// normal
+	FVector Normal;
+	//	FLinearColor Colors[3];
+};
+
+// A geometric object.  This will show up as a separate object when imported into a modeling program.
+class OBJGeom
+{
+public:
+	/** List of faces that make up this object. */
+	TArray<OBJFace> Faces;
+
+	/** Vertex positions that make up this object. */
+	TArray<OBJVertex> VertexData;
+
+	/** Name used when writing this object to the OBJ file. */
+	FString Name;
+
+	// Constructors.
+	FORCEINLINE OBJGeom(const FString& InName)
+		: Name(InName)
+	{}
+};
+
+void OutputObjMesh(FOutputDevice &Ar, OBJGeom *object) {
+	// Object header
+
+	Ar.Logf(TEXT("g %s\n"), *object->Name);
+	Ar.Logf(TEXT("\n"));
+
+	// Verts
+
+	for (int32 f = 0; f < object->VertexData.Num(); ++f)
+	{
+		const OBJVertex& vertex = object->VertexData[f];
+		const FVector& vtx = vertex.Vert;
+
+		Ar.Logf(TEXT("v %.4f %.4f %.4f\n"), vtx.X, vtx.Z, vtx.Y);
+	}
+
+	Ar.Logf(TEXT("\n"));
+
+	// Texture coordinates
+
+	for (int32 f = 0; f < object->VertexData.Num(); ++f)
+	{
+		const OBJVertex& face = object->VertexData[f];
+		const FVector2D& uv = face.UV;
+
+		Ar.Logf(TEXT("vt %.4f %.4f\n"), uv.X, 1.0f - uv.Y);
+	}
+
+	Ar.Logf(TEXT("\n"));
+
+	// Normals
+
+	for (int32 f = 0; f < object->VertexData.Num(); ++f)
+	{
+		const OBJVertex& face = object->VertexData[f];
+		const FVector& Normal = face.Normal;
+
+		Ar.Logf(TEXT("vn %.3f %.3f %.3f\n"), Normal.X, Normal.Z, Normal.Y);
+	}
+	Ar.Logf(TEXT("\n"));
+
+	// Faces
+
+	for (int32 f = 0; f < object->Faces.Num(); ++f)
+	{
+		const OBJFace& face = object->Faces[f];
+
+		for (int32 v = 0; v < 3; ++v)
+		{
+			// +1 as Wavefront files are 1 index based
+			uint32 VertexIndex = face.VertexIndex[v] + 1;
+			Ar.Logf(TEXT("%d/%d/%d "), VertexIndex, VertexIndex, VertexIndex);
+		}
+
+		Ar.Logf(TEXT("\n"));
+	}
+	Ar.Logf(TEXT("\n"));
+}
+
 void FVisionExporterModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
