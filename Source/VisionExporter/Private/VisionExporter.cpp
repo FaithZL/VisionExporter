@@ -175,6 +175,12 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 	return ExportTask;
 }
 
+TSharedPtr<OBJGeom> FVisionExporterModule::ActorToObj(AActor* Actor) const noexcept {
+	auto ret = MakeShareable(new OBJGeom(""));
+
+	return ret;
+}
+
 TArray<AActor*> FVisionExporterModule::GetActors(bool bSelectedOnly) const noexcept {
 	TArray<AActor*> ActorsToExport;
 	for (FActorIterator It(GetWorld()); It; ++It)
