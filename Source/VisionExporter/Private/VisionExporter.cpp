@@ -10,6 +10,8 @@
 #include "ToolMenus.h"
 #include "AssetExportTask.h"
 #include "UObject/GCObjectScopeGuard.h"
+#include "Misc/OutputDeviceFile.h"
+#include "EditorDirectories.h"
 
 static const FName VisionExporterTabName("VisionExporter");
 
@@ -59,7 +61,14 @@ public:
 	{}
 };
 
-void OutputObjMesh(FOutputDevice &Ar, OBJGeom *object) {
+void OutputObjMesh(OBJGeom *object, FString TargetPath, FString Filename) {
+
+	FString TempFile = TargetPath + TEXT("/UnrealExportFile.tmp");
+	TSharedPtr<FOutputDevice> FileAr = MakeShareable(new FOutputDeviceFile(*TempFile));
+	FileAr->SetSuppressEventTag(true);
+	FileAr->SetAutoEmitLineTerminator(false);
+	FStringOutputDevice Ar;
+
 	// Object header
 
 	Ar.Logf(TEXT("g %s\n"), *object->Name);
@@ -116,6 +125,12 @@ void OutputObjMesh(FOutputDevice &Ar, OBJGeom *object) {
 		Ar.Logf(TEXT("\n"));
 	}
 	Ar.Logf(TEXT("\n"));
+
+	FileAr->Flush();
+	FileAr->Log(*Ar);
+	FileAr->TearDown();
+	IFileManager::Get().Move(*(TargetPath + TEXT("/") + Filename), *TempFile, 1, 1);
+	return;
 }
 
 void FVisionExporterModule::StartupModule()
@@ -164,7 +179,8 @@ void FVisionExporterModule::ExportMeshes(UAssetExportTask* ExportTask) const noe
 }
 
 void FVisionExporterModule::ExportMeshesToObj(UAssetExportTask* ExportTask) const noexcept {
-
+	FString TargetPath = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::UNR);
+	OutputObjMesh(nullptr, TargetPath, "testwocao.obj");
 }
 
 void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) const noexcept {
@@ -193,6 +209,7 @@ TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs
 	UAssetExportTask* ExportTask = InitExportTask("Test.obj", false);
 	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
 
+	ExportMeshes(ExportTask);
 
 
 	FText WidgetText = FText::Format(
