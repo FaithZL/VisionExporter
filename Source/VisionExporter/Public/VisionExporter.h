@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "Exporters/Exporter.h"
 
 class FToolBarBuilder;
 class FMenuBuilder;
@@ -12,7 +13,6 @@ class UAssetExportTask;
 class FVisionExporterModule : public IModuleInterface
 {
 public:
-
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
@@ -25,7 +25,7 @@ private:
 	void RegisterMenus();
 
 	[[nodiscard]] UWorld* GetWorld() const noexcept;
-
+	[[nodiscard]] TArray<AActor*> GetActors(bool bSelectedOnly) const noexcept;
 	void ExportMeshes(UAssetExportTask*) const noexcept;
 	void ExportMeshesToObj(UAssetExportTask*) const noexcept;
 	void ExportMeshesToGLTF(UAssetExportTask*) const noexcept;

@@ -12,6 +12,7 @@
 #include "UObject/GCObjectScopeGuard.h"
 #include "Misc/OutputDeviceFile.h"
 #include "EditorDirectories.h"
+#include "EngineUtils.h"
 
 static const FName VisionExporterTabName("VisionExporter");
 
@@ -61,8 +62,8 @@ public:
 	{}
 };
 
-void OutputObjMesh(OBJGeom *object, FString TargetPath, FString Filename) {
-
+void OutputObjMesh(OBJGeom *object, FString TargetPath) {
+	FString Filename = object->Name;
 	FString TempFile = TargetPath + TEXT("/UnrealExportFile.tmp");
 	TSharedPtr<FOutputDevice> FileAr = MakeShareable(new FOutputDeviceFile(*TempFile));
 	FileAr->SetSuppressEventTag(true);
@@ -174,13 +175,29 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 	return ExportTask;
 }
 
+TArray<AActor*> FVisionExporterModule::GetActors(bool bSelectedOnly) const noexcept {
+	TArray<AActor*> ActorsToExport;
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* Actor = *It;
+		// only export selected actors if the flag is set
+		if (!Actor || (bSelectedOnly && ! Actor->IsSelected()))
+		{
+			continue;
+		}
+
+		ActorsToExport.Add(Actor);
+	}
+	return ActorsToExport;
+}
+
 void FVisionExporterModule::ExportMeshes(UAssetExportTask* ExportTask) const noexcept {
 	ExportMeshesToObj(ExportTask);
 }
 
 void FVisionExporterModule::ExportMeshesToObj(UAssetExportTask* ExportTask) const noexcept {
 	FString TargetPath = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::UNR);
-	OutputObjMesh(nullptr, TargetPath, "testwocao.obj");
+	OutputObjMesh(nullptr, TargetPath);
 }
 
 void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) const noexcept {
