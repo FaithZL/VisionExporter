@@ -13,6 +13,8 @@
 #include "Misc/OutputDeviceFile.h"
 #include "EditorDirectories.h"
 #include "EngineUtils.h"
+#include "Landscape.h"
+#include "LandscapeInfo.h"
 
 static const FName VisionExporterTabName("VisionExporter");
 
@@ -177,6 +179,10 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 
 TSharedPtr<OBJGeom> FVisionExporterModule::ActorToObj(AActor* Actor) const noexcept {
 	auto ret = MakeShareable(new OBJGeom(""));
+
+	FMatrix LocalToWorld = Actor->ActorToWorld().ToMatrixWithScale();
+	ALandscape* Landscape = Cast<ALandscape>(Actor);
+	ULandscapeInfo* LandscapeInfo = Landscape ? Landscape->GetLandscapeInfo() : NULL;
 
 	return ret;
 }
