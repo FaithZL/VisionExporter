@@ -15,6 +15,7 @@
 #include "EngineUtils.h"
 #include "Landscape.h"
 #include "LandscapeInfo.h"
+#include "LandscapeDataAccess.h"
 
 static const FName VisionExporterTabName("VisionExporter");
 
@@ -177,8 +178,8 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 	return ExportTask;
 }
 
-TSharedPtr<OBJGeom> FVisionExporterModule::ActorToObj(AActor* Actor) const noexcept {
-	auto ret = MakeShareable(new OBJGeom(""));
+TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bool bSelectedOnly) const noexcept {
+	TArray<TSharedPtr<OBJGeom>> Objects;
 
 	FMatrix LocalToWorld = Actor->ActorToWorld().ToMatrixWithScale();
 	ALandscape* Landscape = Cast<ALandscape>(Actor);
@@ -186,7 +187,104 @@ TSharedPtr<OBJGeom> FVisionExporterModule::ActorToObj(AActor* Actor) const noexc
 
 	if (Landscape && LandscapeInfo) {
 		auto SelectedComponents = LandscapeInfo->GetSelectedComponents();
+		// Export data for each component
+		for (auto It = Landscape->GetLandscapeInfo()->XYtoComponentMap.CreateIterator(); It; ++It)
+		{
+			if (bSelectedOnly && SelectedComponents.Num() && !SelectedComponents.Contains(It.Value()))
+			{
+				continue;
+			}
+			ULandscapeComponent* Component = It.Value();
+			FLandscapeComponentDataInterface CDI(Component, Landscape->ExportLOD);
+			const int32 ComponentSizeQuads = ((Component->ComponentSizeQuads + 1) >> Landscape->ExportLOD) - 1;
+			const int32 SubsectionSizeQuads = ((Component->SubsectionSizeQuads + 1) >> Landscape->ExportLOD) - 1;
+			const float ScaleFactor = (float)Component->ComponentSizeQuads / (float)ComponentSizeQuads;
 
+			TSharedPtr<OBJGeom> objGeom = MakeShareable(new OBJGeom(Component->GetName()));
+			objGeom->VertexData.AddZeroed(FMath::Square(ComponentSizeQuads + 1));
+			objGeom->Faces.AddZeroed(FMath::Square(ComponentSizeQuads) * 2);
+
+			// Check if there are any holes
+			TArray64<uint8> RawVisData;
+			uint8* VisDataMap = NULL;
+			int32 TexIndex = INDEX_NONE;
+			int32 WeightMapSize = (SubsectionSizeQuads + 1) * Component->NumSubsections;
+			int32 ChannelOffsets[4] = { (int32)STRUCT_OFFSET(FColor,R),(int32)STRUCT_OFFSET(FColor,G),(int32)STRUCT_OFFSET(FColor,B),(int32)STRUCT_OFFSET(FColor,A) };
+
+			const TArray<FWeightmapLayerAllocationInfo>& ComponentWeightmapLayerAllocations = Component->GetWeightmapLayerAllocations();
+			const TArray<UTexture2D*>& ComponentWeightmapTextures = Component->GetWeightmapTextures();
+
+			for (int32 AllocIdx = 0; AllocIdx < ComponentWeightmapLayerAllocations.Num(); AllocIdx++)
+			{
+				const FWeightmapLayerAllocationInfo& AllocInfo = ComponentWeightmapLayerAllocations[AllocIdx];
+				if (AllocInfo.LayerInfo == ALandscapeProxy::VisibilityLayer)
+				{
+					TexIndex = AllocInfo.WeightmapTextureIndex;
+
+					ComponentWeightmapTextures[TexIndex]->Source.GetMipData(RawVisData, 0);
+					VisDataMap = RawVisData.GetData() + ChannelOffsets[AllocInfo.WeightmapTextureChannel];
+				}
+			}
+
+			// Export verts
+			OBJVertex* Vert = objGeom->VertexData.GetData();
+			for (int32 y = 0; y < ComponentSizeQuads + 1; y++)
+			{
+				for (int32 x = 0; x < ComponentSizeQuads + 1; x++)
+				{
+					FVector WorldPos, WorldTangentX, WorldTangentY, WorldTangentZ;
+
+					CDI.GetWorldPositionTangents(x, y, WorldPos, WorldTangentX, WorldTangentY, WorldTangentZ);
+
+					Vert->Vert = WorldPos;
+					Vert->UV = FVector2D(Component->GetSectionBase().X + x * ScaleFactor, Component->GetSectionBase().Y + y * ScaleFactor);
+					Vert->Normal = WorldTangentZ;
+					Vert++;
+				}
+			}
+
+			int32 VisThreshold = 170;
+			int32 SubNumX, SubNumY, SubX, SubY;
+
+			OBJFace* Face = objGeom->Faces.GetData();
+			for (int32 y = 0; y < ComponentSizeQuads; y++)
+			{
+				for (int32 x = 0; x < ComponentSizeQuads; x++)
+				{
+					CDI.ComponentXYToSubsectionXY(x, y, SubNumX, SubNumY, SubX, SubY);
+					int32 WeightIndex = SubX + SubNumX * (SubsectionSizeQuads + 1) + (SubY + SubNumY * (SubsectionSizeQuads + 1)) * WeightMapSize;
+
+					bool bInvisible = VisDataMap && VisDataMap[WeightIndex * sizeof(FColor)] >= VisThreshold;
+					// triangulation matches FLandscapeIndexBuffer constructor
+					Face->VertexIndex[0] = (x + 0) + (y + 0) * (ComponentSizeQuads + 1);
+					Face->VertexIndex[1] = bInvisible ? Face->VertexIndex[0] : (x + 1) + (y + 1) * (ComponentSizeQuads + 1);
+					Face->VertexIndex[2] = bInvisible ? Face->VertexIndex[0] : (x + 1) + (y + 0) * (ComponentSizeQuads + 1);
+					Face++;
+
+					Face->VertexIndex[0] = (x + 0) + (y + 0) * (ComponentSizeQuads + 1);
+					Face->VertexIndex[1] = bInvisible ? Face->VertexIndex[0] : (x + 0) + (y + 1) * (ComponentSizeQuads + 1);
+					Face->VertexIndex[2] = bInvisible ? Face->VertexIndex[0] : (x + 1) + (y + 1) * (ComponentSizeQuads + 1);
+					Face++;
+				}
+			}
+
+			Objects.Add(objGeom);
+		}
+	}
+
+	return Objects;
+}
+
+TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::GetOBJGeoms(bool bSelectedOnly) const noexcept {
+	TArray<TSharedPtr<OBJGeom>> ret;
+
+	TArray<AActor*> actors = GetActors(bSelectedOnly);
+
+	for (int i = 0; i < actors.Num(); ++i) {
+		auto objects = ActorToObjs(actors[i], bSelectedOnly);
+		for (size_t j = 0; j < objects.Num(); j++) {
+			ret.Add(objects[j]);
+		}
 	}
 
 	return ret;
@@ -208,13 +306,17 @@ TArray<AActor*> FVisionExporterModule::GetActors(bool bSelectedOnly) const noexc
 	return ActorsToExport;
 }
 
+
 void FVisionExporterModule::ExportMeshes(UAssetExportTask* ExportTask) const noexcept {
 	ExportMeshesToObj(ExportTask);
 }
 
 void FVisionExporterModule::ExportMeshesToObj(UAssetExportTask* ExportTask) const noexcept {
 	FString TargetPath = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::UNR);
-	OutputObjMesh(nullptr, TargetPath);
+
+	TArray<TSharedPtr<OBJGeom>> objGeoms = GetOBJGeoms(ExportTask->bSelected);
+
+	//OutputObjMesh(nullptr, TargetPath);
 }
 
 void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) const noexcept {

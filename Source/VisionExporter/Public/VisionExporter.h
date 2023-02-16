@@ -27,7 +27,8 @@ private:
 
 	[[nodiscard]] UWorld* GetWorld() const noexcept;
 	[[nodiscard]] TArray<AActor*> GetActors(bool bSelectedOnly) const noexcept;
-	[[nodiscard]] TSharedPtr<OBJGeom> ActorToObj(AActor* Actor) const noexcept;
+	[[nodiscard]] TArray<TSharedPtr<OBJGeom>> GetOBJGeoms(bool bSelectedOnly) const noexcept;
+	[[nodiscard]] TArray<TSharedPtr<OBJGeom>> ActorToObjs(AActor* Actor, bool bSelectedOnly) const noexcept;
 	void ExportMeshes(UAssetExportTask*) const noexcept;
 	void ExportMeshesToObj(UAssetExportTask*) const noexcept;
 	void ExportMeshesToGLTF(UAssetExportTask*) const noexcept;
