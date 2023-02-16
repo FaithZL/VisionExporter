@@ -23,6 +23,8 @@ static const FName VisionExporterTabName("VisionExporter");
 
 extern ENGINE_API class UWorldProxy GWorld;
 
+#pragma optimize( "", off )
+
 class OBJFace
 {
 public:
@@ -60,13 +62,13 @@ public:
 	FString Name;
 
 	// Constructors.
-	FORCEINLINE OBJGeom(const FString& InName)
+	OBJGeom(const FString& InName)
 		: Name(InName)
 	{}
 };
 
 void OutputObjMesh(OBJGeom *object, FString TargetPath) {
-	FString Filename = object->Name;
+	FString Filename = object->Name + TEXT(".obj");
 	FString TempFile = TargetPath + TEXT("/UnrealExportFile.tmp");
 	TSharedPtr<FOutputDevice> FileAr = MakeShareable(new FOutputDeviceFile(*TempFile));
 	FileAr->SetSuppressEventTag(true);
@@ -114,11 +116,10 @@ void OutputObjMesh(OBJGeom *object, FString TargetPath) {
 	Ar.Logf(TEXT("\n"));
 
 	// Faces
-
 	for (int32 f = 0; f < object->Faces.Num(); ++f)
 	{
 		const OBJFace& face = object->Faces[f];
-
+		Ar.Logf(TEXT("f "));
 		for (int32 v = 0; v < 3; ++v)
 		{
 			// +1 as Wavefront files are 1 index based
@@ -272,6 +273,98 @@ TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bo
 		}
 	}
 
+	// Static mesh components
+
+	UStaticMeshComponent* StaticMeshComponent = NULL;
+	UStaticMesh* StaticMesh = NULL;
+
+	TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
+	Actor->GetComponents(StaticMeshComponents);
+
+	for (int32 j = 0; j < StaticMeshComponents.Num(); j++)
+	{
+		// If its a static mesh component, with a static mesh
+		StaticMeshComponent = StaticMeshComponents[j];
+		if (StaticMeshComponent->IsRegistered() && StaticMeshComponent->GetStaticMesh()
+			&& StaticMeshComponent->GetStaticMesh()->HasValidRenderData())
+		{
+			LocalToWorld = StaticMeshComponent->GetComponentTransform().ToMatrixWithScale();
+			StaticMesh = StaticMeshComponent->GetStaticMesh();
+			if (StaticMesh)
+			{
+				// make room for the faces
+				TSharedPtr<OBJGeom> objGeom = MakeShareable(new OBJGeom(StaticMeshComponents.Num() > 1 ? StaticMesh->GetName() : Actor->GetName()));
+
+				FStaticMeshLODResources* RenderData = &StaticMesh->GetRenderData()->LODResources[0];
+				FIndexArrayView Indices = RenderData->IndexBuffer.GetArrayView();
+				uint32 NumIndices = Indices.Num();
+
+				// 3 indices for each triangle
+				check(NumIndices % 3 == 0);
+				uint32 TriangleCount = NumIndices / 3;
+				objGeom->Faces.AddUninitialized(TriangleCount);
+
+				uint32 VertexCount = RenderData->VertexBuffers.PositionVertexBuffer.GetNumVertices();
+				objGeom->VertexData.AddUninitialized(VertexCount);
+				OBJVertex* VerticesOut = objGeom->VertexData.GetData();
+
+				check(VertexCount == RenderData->VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
+
+				FMatrix LocalToWorldInverseTranspose = LocalToWorld.InverseFast().GetTransposed();
+				for (uint32 i = 0; i < VertexCount; i++)
+				{
+					// Vertices
+					VerticesOut[i].Vert = LocalToWorld.TransformPosition((FVector)RenderData->VertexBuffers.PositionVertexBuffer.VertexPosition(i));
+					// UVs from channel 0
+					VerticesOut[i].UV = FVector2D(RenderData->VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(i, 0));
+					// Normal
+					VerticesOut[i].Normal = LocalToWorldInverseTranspose.TransformVector((FVector4)RenderData->VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(i));
+				}
+
+				bool bFlipCullMode = LocalToWorld.RotDeterminant() < 0.0f;
+
+				uint32 CurrentTriangleId = 0;
+				for (int32 SectionIndex = 0; SectionIndex < RenderData->Sections.Num(); ++SectionIndex)
+				{
+					FStaticMeshSection& Section = RenderData->Sections[SectionIndex];
+					UMaterialInterface* Material = 0;
+
+					// Get the material for this triangle by first looking at the material overrides array and if that is NULL by looking at the material array in the original static mesh
+					Material = StaticMeshComponent->GetMaterial(Section.MaterialIndex);
+
+					// cache the set of needed materials if desired
+				//	if (Materials && Material)
+				//	{
+				//		Materials->Add(Material);
+				//	}
+
+					for (uint32 i = 0; i < Section.NumTriangles; i++)
+					{
+						OBJFace& objFace = objGeom->Faces[CurrentTriangleId++];
+
+						uint32 a = Indices[Section.FirstIndex + i * 3 + 0];
+						uint32 b = Indices[Section.FirstIndex + i * 3 + 1];
+						uint32 c = Indices[Section.FirstIndex + i * 3 + 2];
+
+						if (bFlipCullMode)
+						{
+							Swap(a, c);
+						}
+
+						objFace.VertexIndex[0] = a;
+						objFace.VertexIndex[1] = b;
+						objFace.VertexIndex[2] = c;
+
+						// Material
+					//	objFace.Material = Material;
+					}
+				}
+
+				Objects.Add(objGeom);
+			}
+		}
+	}
+
 	return Objects;
 }
 
@@ -316,7 +409,10 @@ void FVisionExporterModule::ExportMeshesToObj(UAssetExportTask* ExportTask) cons
 
 	TArray<TSharedPtr<OBJGeom>> objGeoms = GetOBJGeoms(ExportTask->bSelected);
 
-	//OutputObjMesh(nullptr, TargetPath);
+	for (size_t i = 0; i < objGeoms.Num(); i++)
+	{
+		OutputObjMesh(objGeoms[i].Get(), TargetPath);
+	}
 }
 
 void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) const noexcept {
@@ -401,3 +497,5 @@ void FVisionExporterModule::RegisterMenus()
 #undef LOCTEXT_NAMESPACE
 	
 IMPLEMENT_MODULE(FVisionExporterModule, VisionExporter)
+
+#pragma optimize( "", on )
