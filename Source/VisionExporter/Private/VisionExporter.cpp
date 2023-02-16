@@ -181,8 +181,13 @@ TSharedPtr<OBJGeom> FVisionExporterModule::ActorToObj(AActor* Actor) const noexc
 	auto ret = MakeShareable(new OBJGeom(""));
 
 	FMatrix LocalToWorld = Actor->ActorToWorld().ToMatrixWithScale();
-	//ALandscape* Landscape = Cast<ALandscape>(Actor);
-	//ULandscapeInfo* LandscapeInfo = Landscape ? Landscape->GetLandscapeInfo() : NULL;
+	ALandscape* Landscape = Cast<ALandscape>(Actor);
+	ULandscapeInfo* LandscapeInfo = Landscape ? Landscape->GetLandscapeInfo() : NULL;
+
+	if (Landscape && LandscapeInfo) {
+		auto SelectedComponents = LandscapeInfo->GetSelectedComponents();
+
+	}
 
 	return ret;
 }
