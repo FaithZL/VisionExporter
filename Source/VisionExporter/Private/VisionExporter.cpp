@@ -171,7 +171,6 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 	ExportTask->Exporter = NULL;
 	ExportTask->Filename = Filename;
 	ExportTask->bSelected = bSelected;
-	ExportTask->bSelected = false;
 	ExportTask->bReplaceIdentical = true;
 	ExportTask->bPrompt = false;
 	ExportTask->bUseFileArchive = false;
@@ -181,11 +180,10 @@ UAssetExportTask *FVisionExporterModule::InitExportTask(FString Filename, bool b
 
 TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bool bSelectedOnly) const noexcept {
 	TArray<TSharedPtr<OBJGeom>> Objects;
-
+	
 	FMatrix LocalToWorld = Actor->ActorToWorld().ToMatrixWithScale();
 	ALandscape* Landscape = Cast<ALandscape>(Actor);
 	ULandscapeInfo* LandscapeInfo = Landscape ? Landscape->GetLandscapeInfo() : NULL;
-
 	if (Landscape && LandscapeInfo) {
 		auto SelectedComponents = LandscapeInfo->GetSelectedComponents();
 		// Export data for each component
@@ -196,6 +194,9 @@ TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bo
 				continue;
 			}
 			ULandscapeComponent* Component = It.Value();
+			if (!Component->IsVisibleInEditor()) {
+				continue;
+			}
 			FLandscapeComponentDataInterface CDI(Component, Landscape->ExportLOD);
 			const int32 ComponentSizeQuads = ((Component->ComponentSizeQuads + 1) >> Landscape->ExportLOD) - 1;
 			const int32 SubsectionSizeQuads = ((Component->SubsectionSizeQuads + 1) >> Landscape->ExportLOD) - 1;
@@ -285,6 +286,9 @@ TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bo
 	{
 		// If its a static mesh component, with a static mesh
 		StaticMeshComponent = StaticMeshComponents[j];
+		if (!StaticMeshComponent->IsVisibleInEditor()) {
+			continue;
+		}
 		if (StaticMeshComponent->IsRegistered() && StaticMeshComponent->GetStaticMesh()
 			&& StaticMeshComponent->GetStaticMesh()->HasValidRenderData())
 		{
@@ -314,11 +318,11 @@ TArray<TSharedPtr<OBJGeom>> FVisionExporterModule::ActorToObjs(AActor* Actor, bo
 				for (uint32 i = 0; i < VertexCount; i++)
 				{
 					// Vertices
-					VerticesOut[i].Vert = LocalToWorld.TransformPosition((FVector)RenderData->VertexBuffers.PositionVertexBuffer.VertexPosition(i));
+					VerticesOut[i].Vert = ((FVector)RenderData->VertexBuffers.PositionVertexBuffer.VertexPosition(i));
 					// UVs from channel 0
 					VerticesOut[i].UV = FVector2D(RenderData->VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(i, 0));
 					// Normal
-					VerticesOut[i].Normal = LocalToWorldInverseTranspose.TransformVector((FVector4)RenderData->VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(i));
+					VerticesOut[i].Normal = ((FVector4)RenderData->VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(i));
 				}
 
 				bool bFlipCullMode = LocalToWorld.RotDeterminant() < 0.0f;
