@@ -138,28 +138,6 @@ void OutputObjMesh(OBJGeom *object, FString TargetPath) {
 	return;
 }
 
-void FVisionExporterModule::StartupModule()
-{
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	
-	FVisionExporterStyle::Initialize();
-	FVisionExporterStyle::ReloadTextures();
-
-	FVisionExporterCommands::Register();
-	
-	PluginCommands = MakeShareable(new FUICommandList);
-
-	PluginCommands->MapAction(
-		FVisionExporterCommands::Get().OpenPluginWindow,
-		FExecuteAction::CreateRaw(this, &FVisionExporterModule::PluginButtonClicked),
-		FCanExecuteAction());
-
-	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FVisionExporterModule::RegisterMenus));
-	
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(VisionExporterTabName, FOnSpawnTab::CreateRaw(this, &FVisionExporterModule::OnSpawnPluginTab))
-		.SetDisplayName(LOCTEXT("FVisionExporterTabTitle", "VisionExporter"))
-		.SetMenuType(ETabSpawnerMenuType::Hidden);
-}
 
 UWorld *FVisionExporterModule::GetWorld() const noexcept {
 	return GWorld.GetReference();
@@ -423,6 +401,58 @@ void FVisionExporterModule::ExportMeshesToGLTF(UAssetExportTask* ExportTask) con
 
 }
 
+TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+
+	UAssetExportTask* ExportTask = InitExportTask("Test.obj", false);
+	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+
+	ExportMeshes(ExportTask);
+
+
+	FText WidgetText = FText::Format(
+		LOCTEXT("WindowWidgetText", "Add code to {0} in {1} to override this window's contents"),
+		FText::FromString(TEXT("FVisionExporterModule::OnSpawnPluginTab")),
+		FText::FromString(TEXT("VisionExporter.cpp"))
+	);
+
+	return SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab)
+		[
+			// Put your tab content here!
+			SNew(SBox)
+			.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(WidgetText)
+		]
+		];
+}
+
+void FVisionExporterModule::StartupModule()
+{
+	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+
+	FVisionExporterStyle::Initialize();
+	FVisionExporterStyle::ReloadTextures();
+
+	FVisionExporterCommands::Register();
+
+	PluginCommands = MakeShareable(new FUICommandList);
+
+	PluginCommands->MapAction(
+		FVisionExporterCommands::Get().OpenPluginWindow,
+		FExecuteAction::CreateRaw(this, &FVisionExporterModule::PluginButtonClicked),
+		FCanExecuteAction());
+
+	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FVisionExporterModule::RegisterMenus));
+
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(VisionExporterTabName, FOnSpawnTab::CreateRaw(this, &FVisionExporterModule::OnSpawnPluginTab))
+		.SetDisplayName(LOCTEXT("FVisionExporterTabTitle", "VisionExporter"))
+		.SetMenuType(ETabSpawnerMenuType::Hidden);
+}
+
 void FVisionExporterModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
@@ -439,34 +469,6 @@ void FVisionExporterModule::ShutdownModule()
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(VisionExporterTabName);
 }
 
-TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
-{
-
-	UAssetExportTask* ExportTask = InitExportTask("Test.obj", false);
-	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
-
-	ExportMeshes(ExportTask);
-
-
-	FText WidgetText = FText::Format(
-		LOCTEXT("WindowWidgetText", "Add code to {0} in {1} to override this window's contents"),
-		FText::FromString(TEXT("FVisionExporterModule::OnSpawnPluginTab")),
-		FText::FromString(TEXT("VisionExporter.cpp"))
-		);
-
-	return SNew(SDockTab)
-		.TabRole(ETabRole::NomadTab)
-		[
-			// Put your tab content here!
-			SNew(SBox)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(WidgetText)
-			]
-		];
-}
 
 void FVisionExporterModule::PluginButtonClicked()
 {
