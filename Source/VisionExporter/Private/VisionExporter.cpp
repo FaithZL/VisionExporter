@@ -407,26 +407,21 @@ TSharedRef<SDockTab> FVisionExporterModule::OnSpawnPluginTab(const FSpawnTabArgs
 	UAssetExportTask* ExportTask = InitExportTask("Test.obj", false);
 	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
 
-	ExportMeshes(ExportTask);
+	//ExportMeshes(ExportTask);
 
-
-	FText WidgetText = FText::Format(
-		LOCTEXT("WindowWidgetText", "Add code to {0} in {1} to override this window's contents"),
-		FText::FromString(TEXT("FVisionExporterModule::OnSpawnPluginTab")),
-		FText::FromString(TEXT("VisionExporter.cpp"))
-	);
-
-	return SNew(SDockTab)
-		.TabRole(ETabRole::NomadTab)
-		[
-			// Put your tab content here!
-			SNew(SBox)
-			.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
+	auto checkBox = SNew(SCheckBox).Style(FCoreStyle::Get(), "RadioButton")
 		[
 			SNew(STextBlock)
-			.Text(WidgetText)
-		]
+			.Text(LOCTEXT("", "export to vision"))
+		];
+
+	return SNew(SDockTab)
+		.TabRole(ETabRole::PanelTab).Label(LOCTEXT("", "vision exporter"))
+		[
+			SNew(SBox).HAlign(HAlign_Left).VAlign(VAlign_Top)
+			[
+				checkBox
+			]
 		];
 }
 
